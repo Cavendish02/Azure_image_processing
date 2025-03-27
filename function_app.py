@@ -6,25 +6,28 @@ import io
 app = func.FunctionApp()
 
 @app.function_name(name="ImageProcessor")
-@app.route(route="process-image", methods=["POST"])
-def process_image(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info("Processing image...")
+@app.blob_trigger(arg_name="myblob",
+                  path="uploads/{name}",
+                  connection="AzureWebJobsStorage")
+def process_image(myblob: func.InputStream, outputBlob: func.Out[str]):
+    logging.info(f"Processing image: {myblob.name}, Size: {myblob.length} bytes")
 
     try:
-        # الحصول على الصورة من الطلب
-        image_data = req.get_body()
-        image = Image.open(io.BytesIO(image_data))
+        # تحميل الصورة
+        image = Image.open(myblob)
 
         # تحويل الصورة إلى تدرج الرمادي
         image = image.convert("L")
 
-        # حفظ الصورة المعدلة في ذاكرة مؤقتة
+        # حفظ الصورة في ذاكرة مؤقتة
         output = io.BytesIO()
         image.save(output, format="PNG")
         output.seek(0)
 
-        return func.HttpResponse(output.read(), mimetype="image/png")
+        # حفظ الصورة المعالجة في مجلد `processed`
+        outputBlob.set(output.getvalue())
+
+        logging.info(f"Image {myblob.name} processed successfully and saved to processed/")
     
     except Exception as e:
         logging.error(f"Error processing image: {str(e)}")
-        return func.HttpResponse(f"Error processing image: {str(e)}", status_code=500)
