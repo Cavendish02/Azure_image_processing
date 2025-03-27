@@ -4,8 +4,22 @@
     "applicationInsights": {
       "samplingSettings": {
         "isEnabled": true,
-        "excludedTypes": "Request"
-      }
+        "excludedTypes": "Request",
+        "maxTelemetryItemsPerSecond": 20
+      },
+      "enableLiveMetrics": true,
+      "enableDependencyTracking": true,
+      "enablePerformanceCountersCollection": true
+    },
+    "logLevel": {
+      "default": "Information",
+      "Function": "Debug",
+      "Host": "Error",
+      "Worker": "Warning"
     }
+  },
+  "extensionBundle": {
+    "id": "Microsoft.Azure.Functions.ExtensionBundle",
+    "version": "[4.14.0, 5.0.0)"
   }
 }
