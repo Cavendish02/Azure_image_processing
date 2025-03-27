@@ -1,3 +1,5 @@
-azure-functions
-pillow
-azure-storage-blob
+azure-functions==1.15.0
+pillow==10.1.0
+azure-storage-blob==12.16.0
+opencensus-ext-azure==1.1.11
+azure-identity==1.15.0
