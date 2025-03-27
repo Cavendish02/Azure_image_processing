@@ -2,32 +2,52 @@ import azure.functions as func
 import logging
 from PIL import Image
 import io
+import os
 
 app = func.FunctionApp()
 
 @app.function_name(name="ImageProcessor")
-@app.blob_trigger(arg_name="myblob",
-                  path="uploads/{name}",
-                  connection="AzureWebJobsStorage")
-def process_image(myblob: func.InputStream, outputBlob: func.Out[str]):
-    logging.info(f"Processing image: {myblob.name}, Size: {myblob.length} bytes")
-
-    try:
-        # تحميل الصورة
-        image = Image.open(myblob)
-
-        # تحويل الصورة إلى تدرج الرمادي
-        image = image.convert("L")
-
-        # حفظ الصورة في ذاكرة مؤقتة
-        output = io.BytesIO()
-        image.save(output, format="PNG")
-        output.seek(0)
-
-        # حفظ الصورة المعالجة في مجلد `processed`
-        outputBlob.set(output.getvalue())
-
-        logging.info(f"Image {myblob.name} processed successfully and saved to processed/")
+@app.blob_trigger(
+    arg_name="myblob",
+    path="uploads/{name}",
+    connection="AzureWebJobsStorage"
+)
+@app.blob_output(
+    arg_name="outputBlob",
+    path="processed/{name}",
+    connection="AzureWebJobsStorage"
+)
+def process_image(myblob: func.InputStream, outputBlob: func.Out[bytes]):
+    """Processes uploaded images by converting them to grayscale"""
     
+    try:
+        # 1. التحقق من نوع الملف
+        if not myblob.name.lower().endswith(('.png', '.jpg', '.jpeg')):
+            logging.warning(f"Unsupported file type: {myblob.name}")
+            return
+
+        logging.info(f"Processing image: {myblob.name}, Size: {myblob.length} bytes")
+
+        # 2. معالجة الصورة
+        with Image.open(myblob) as image:
+            # تحويل إلى تدرج الرمادي مع التحكم بالجودة
+            grayscale_image = image.convert("L")
+            
+            # 3. حفظ النتيجة
+            with io.BytesIO() as output:
+                grayscale_image.save(
+                    output,
+                    format="PNG",
+                    optimize=True,
+                    quality=85  # مناسب للتوازن بين الجودة والحجم
+                )
+                output.seek(0)
+                outputBlob.set(output.read())
+
+        logging.info(f"Successfully processed {myblob.name}")
+
+    except Image.UnidentifiedImageError:
+        logging.error(f"Invalid image file: {myblob.name}")
     except Exception as e:
-        logging.error(f"Error processing image: {str(e)}")
+        logging.error(f"Unexpected error processing {myblob.name}: {str(e)}", exc_info=True)
+        raise
